@@ -1,0 +1,48 @@
+---
+- name: Configure a Linux server
+  hosts: web
+  become: yes
+
+  tasks:
+    - name: Update and upgrade packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Install necessary packages
+      apt:
+        name:
+          - nginx
+          - fail2ban
+          - ufw
+        state: present
+
+    - name: Allow OpenSSH and Nginx in UFW
+      ufw:
+        rule: allow
+        name: "{{ item }}"
+      loop:
+        - OpenSSH
+        - 'Nginx Full'
+    
+    - name: Enable UFW
+      ufw:
+        state: enabled
+    
+    - name: Harden SSH Configuration
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        state: present
+      with_items:
+        - { regexp: '^#Port 22', line: 'Port 2222' }
+        - { regexp: '^PermitRootLogin yes', line: 'PermitRootLogin no' }
+      notify:
+        - Restart SSH
+
+  handlers:
+    - name: Restart SSH
+      service:
+        name: sshd
+        state: restarted
